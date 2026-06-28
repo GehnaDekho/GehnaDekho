@@ -1,0 +1,343 @@
+const User = require('../models/User');
+const OtpSession = require('../models/OtpSession');
+const { generateToken } = require('../utils/jwtToken');
+
+/**
+ * @desc    Register a new user
+ * @route   POST /api/users/register
+ * @access  Public
+ */
+const registerUser = async (req, res) => {
+  try {
+    const { name, email, phone, profilePhoto, role } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !phone) {
+      return res.status(400).json({ message: 'Please add all required fields (name, email, phone)' });
+    }
+
+    // Check if user already exists (by email or phone number)
+    const userExists = await User.findOne({ $or: [{ email }, { phone }] });
+    if (userExists) {
+      const field = userExists.email === email ? 'Email' : 'Phone number';
+      return res.status(400).json({ message: `${field} already registered` });
+    }
+
+    // Create the user
+    const user = await User.create({
+      name,
+      email,
+      phone,
+      profilePhoto: profilePhoto || 'default.jpg',
+      role: role || 'customer'
+    });
+
+    if (user) {
+      // Issue a JWT token upon successful registration
+      const token = generateToken({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+
+      res.status(201).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        rewardPoints: user.rewardPoints,
+        token
+      });
+    } else {
+      res.status(400).json({ message: 'Invalid user data' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Login via OTP (Generate & Mock OTP)
+ * @route   POST /api/users/login
+ * @access  Public
+ */
+const loginUser = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ message: 'Please provide a phone number' });
+    }
+
+    // Generate a 6-digit random OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set expiration to 5 minutes from now
+    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+
+    // Save or update OTP in OtpSession
+    await OtpSession.findOneAndUpdate(
+      { phone },
+      { otp, otpExpires },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // Log the OTP on the console for backend test accessibility
+    console.log(`\n==============================================`);
+    console.log(`[OTP SYSTEM]`);
+    console.log(`User Phone: ${phone}`);
+    console.log(`6-Digit OTP Code: ${otp}`);
+    console.log(`Expires: ${otpExpires.toLocaleTimeString()}`);
+    console.log(`==============================================\n`);
+
+    // Respond to user (Skipping actual SMS gateway integration as requested)
+    res.status(200).json({
+      message: 'OTP sent successfully (Mock)',
+      phone,
+      // For development, we return the OTP in the API response so the frontend can automatically fill or read it.
+      mockOtp: otp 
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Verify OTP and return JWT token
+ * @route   POST /api/users/verify-otp
+ * @access  Public
+ */
+const verifyOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ message: 'Please provide phone and 6-digit OTP' });
+    }
+
+    // Find active OTP session
+    const session = await OtpSession.findOne({ phone });
+    if (!session) {
+      return res.status(400).json({ message: 'OTP has expired or is invalid. Please request a new one.' });
+    }
+
+    // Verify OTP
+    if (session.otp !== otp) {
+      return res.status(400).json({ message: 'Invalid OTP code' });
+    }
+
+    // Check if expired (in case TTL index hasn't run yet)
+    if (new Date() > session.otpExpires) {
+      await OtpSession.deleteOne({ phone });
+      return res.status(400).json({ message: 'OTP has expired' });
+    }
+
+    // Clear session upon successful verification
+    await OtpSession.deleteOne({ phone });
+
+    // Check if user exists in the database
+    const user = await User.findOne({ phone });
+    if (!user) {
+      // User is new; return verified flag and phone number for registration redirect
+      return res.status(200).json({
+        isNewUser: true,
+        phone,
+        message: 'Verification successful. Please register.'
+      });
+    }
+
+    // Existing user; generate JWT token and return profile
+    const token = generateToken({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+
+    res.status(200).json({
+      isNewUser: false,
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      rewardPoints: user.rewardPoints,
+      token
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Get all users with Pagination and Search Filters
+ * @route   GET /api/users
+ * @access  Private/Admin
+ */
+const getUsers = async (req, res) => {
+  try {
+    // Pagination parameters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    // Filters
+    const query = {};
+
+    // Filter by role (customer, outlet_owner)
+    if (req.query.role) {
+      query.role = req.query.role;
+    }
+
+    // Search filter: searches case-insensitively in name, email, or phone
+    if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search, 'i');
+      query.$or = [
+        { name: searchRegex },
+        { email: searchRegex },
+        { phone: searchRegex }
+      ];
+    }
+
+    // Count matching users
+    const totalUsers = await User.countDocuments(query);
+
+    // Retrieve matching users, excluding sensitive fields, sorted by creation date
+    const users = await User.find(query)
+      .select('-otp -otpExpires')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Fetch aggregate totals for administrative dashboard overview
+    const totalCount = await User.countDocuments({});
+    const ownersCount = await User.countDocuments({ role: 'outlet_owner' });
+    const customersCount = await User.countDocuments({ role: 'customer' });
+
+    res.status(200).json({
+      users,
+      counts: {
+        total: totalCount,
+        owners: ownersCount,
+        customers: customersCount
+      },
+      pagination: {
+        total: totalUsers,
+        page,
+        limit,
+        pages: Math.ceil(totalUsers / limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Get a single user by ID
+ * @route   GET /api/users/:id
+ * @access  Private (Self or Admin)
+ */
+const getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-otp -otpExpires');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Authorization check: only Admin or the user themselves can retrieve this profile
+    if (req.user.role !== 'admin' && req.user._id.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view this profile' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Update a user profile
+ * @route   PUT /api/users/:id
+ * @access  Private (Self or Admin)
+ */
+const updateUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Authorization check: only Admin or the user themselves can update this profile
+    if (req.user.role !== 'admin' && req.user._id.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this profile' });
+    }
+
+    const { name, email, phone, profilePhoto, role, rewardPoints } = req.body;
+
+    // Check if the new email or phone is already registered by another user
+    if (email && email !== user.email) {
+      const emailExists = await User.findOne({ email });
+      if (emailExists) {
+        return res.status(400).json({ message: 'Email is already registered by another user' });
+      }
+      user.email = email;
+    }
+
+    if (phone && phone !== user.phone) {
+      const phoneExists = await User.findOne({ phone });
+      if (phoneExists) {
+        return res.status(400).json({ message: 'Phone number is already registered by another user' });
+      }
+      user.phone = phone;
+    }
+
+    // Apply updates
+    if (name) user.name = name;
+    if (profilePhoto) user.profilePhoto = profilePhoto;
+
+    // Restricted fields: Only admins can alter role and rewardPoints
+    if (req.user.role === 'admin') {
+      if (role) user.role = role;
+      if (typeof rewardPoints === 'number') user.rewardPoints = rewardPoints;
+    }
+
+    const updatedUser = await user.save();
+
+    res.status(200).json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phone: updatedUser.phone,
+      role: updatedUser.role,
+      rewardPoints: updatedUser.rewardPoints
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * @desc    Delete a user
+ * @route   DELETE /api/users/:id
+ * @access  Private/Admin
+ */
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    await User.deleteOne({ _id: req.params.id });
+
+    res.status(200).json({ message: 'User deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  registerUser,
+  loginUser,
+  verifyOTP,
+  getUsers,
+  getUserById,
+  updateUser,
+  deleteUser
+};
