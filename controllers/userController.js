@@ -122,8 +122,7 @@ const verifyOTP = async (req, res) => {
     }
 
     // TODO: Remove OTP Bypass once SMS Gateway is integrated
-    // const isBypassMode = process.env.ENABLE_OTP_BYPASS === 'true';
-    const isBypassMode = true;
+    const isBypassMode = process.env.ENABLE_OTP_BYPASS === "true";
 
     // Find active OTP session
     const session = await OtpSession.findOne({ phone });
