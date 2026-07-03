@@ -36,6 +36,12 @@ const getTransactions = async (req, res) => {
       query.status = req.query.status;
     }
 
+    if (req.query.startDate || req.query.endDate) {
+      query.createdAt = {};
+      if (req.query.startDate) query.createdAt.$gte = new Date(req.query.startDate);
+      if (req.query.endDate) query.createdAt.$lte = new Date(req.query.endDate);
+    }
+
     // Search query matching transactionId, invoiceId, remark, or description
     if (req.query.search) {
       const searchRegex = new RegExp(req.query.search, 'i');

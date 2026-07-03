@@ -19,6 +19,8 @@ const voucherConfigRoutes = require('./voucherConfigRoutes');
 const voucherTransactionRoutes = require('./voucherTransactionRoutes');
 const redeemRequestRoutes = require('./redeemRequestRoutes');
 const ratingCriteriaRoutes = require('./ratingCriteriaRoutes');
+const uploadRoutes = require('./uploadRoutes');
+const reelRoutes = require('./reelRoutes');
 
 // Mount individual resource routes
 router.use('/users', userRoutes);
@@ -39,5 +41,7 @@ router.use('/voucher-configs', voucherConfigRoutes);
 router.use('/voucher-transactions', voucherTransactionRoutes);
 router.use('/redeem-requests', redeemRequestRoutes);
 router.use('/rating-criteria', ratingCriteriaRoutes);
+router.use('/upload', uploadRoutes);
+router.use('/reels', reelRoutes);
 
 module.exports = router;

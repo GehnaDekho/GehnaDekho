@@ -5,6 +5,7 @@ const FeaturedJewelleryHistory = require('../models/FeaturedJewelleryHistory');
 const Feedback = require('../models/Feedback');
 const Review = require('../models/Review');
 const CreditTransaction = require('../models/CreditTransaction');
+const Reel = require('../models/Reel');
 const PurchaseHistory = require('../models/PurchaseHistory');
 const mongoose = require('mongoose');
 
@@ -457,11 +458,8 @@ const getOutletStats = async (req, res) => {
       ...historyDateFilter
     });
 
-    // Query reels count from dynamic ledger transactions if model not yet seeded
-    const reelsUploaded = await CreditTransaction.countDocuments({
-      outletId: outlet._id,
-      transactionReason: 'reel_post',
-      status: 'success',
+    const reelsUploaded = await Reel.countDocuments({
+      outlet: outlet._id,
       ...dateFilter
     });
 
