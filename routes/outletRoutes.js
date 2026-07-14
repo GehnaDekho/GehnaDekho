@@ -10,7 +10,8 @@ const {
   reviewOutletRequest,
   getOutletStats,
   getOutletPurchases,
-  getFeaturedOutlets
+  getFeaturedOutlets,
+  getTopRankedOutlets
 } = require('../controllers/outletController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -21,6 +22,10 @@ router.route('/direct')
 // Featured outlets for Home Screen (Public — must be before /:id)
 router.route('/featured-home')
   .get(getFeaturedOutlets);
+
+// Top ranked outlets by Quality Index for Home Screen (Public — must be before /:id)
+router.route('/top-ranked')
+  .get(getTopRankedOutlets);
 
 // Route for creating an outlet (protected) and listing outlets (public)
 router.route('/')

@@ -16,11 +16,11 @@ const mongoose = require('mongoose');
  */
 const createOutlet = async (req, res) => {
   try {
-    const { name, address, phone, email, location, kycDetails } = req.body;
+    const { name, address, phone, email, location, kycDetails, city, googleMapLink, brand } = req.body;
 
     // Validate required fields
-    if (!name || !address || !phone) {
-      return res.status(400).json({ message: 'Please provide all required fields (name, address, phone)' });
+    if (!name || !address || !phone || !city) {
+      return res.status(400).json({ message: 'Please provide all required fields (name, address, phone, city)' });
     }
 
     // Verify if user already has a pending or approved outlet request
@@ -48,7 +48,10 @@ const createOutlet = async (req, res) => {
       phone,
       email: email || '',
       location: location || { lat: null, lng: null },
-      kycDetails: kycDetails || { gstNumber: '', panNumber: '', documentUrl: '' }
+      kycDetails: kycDetails || { gstNumber: '', panNumber: '', documentUrl: '' },
+      city,
+      brand: brand || null,
+      googleMapLink: googleMapLink || ''
     });
 
     res.status(201).json(outlet);
@@ -76,13 +79,15 @@ const createOutletOwnerDirectly = async (req, res) => {
     const outletEmail = req.body.email || req.body.outletEmail || (req.body.outlet && req.body.outlet.email) || '';
     const location = req.body.location || (req.body.outlet && req.body.outlet.location) || { lat: null, lng: null };
     const kycDetails = req.body.kycDetails || (req.body.outlet && req.body.outlet.kycDetails) || { gstNumber: '', panNumber: '', documentUrl: '' };
+    const city = req.body.city || (req.body.outlet && req.body.outlet.city);
+    const googleMapLink = req.body.googleMapLink || (req.body.outlet && req.body.outlet.googleMapLink) || '';
 
     // 1. Validate required fields
     if (!ownerName || !ownerEmail || !ownerPhone) {
       return res.status(400).json({ message: 'Please provide all owner fields (ownerName, ownerEmail, ownerPhone)' });
     }
-    if (!outletName || !address || !outletPhone) {
-      return res.status(400).json({ message: 'Please provide all outlet fields (name, address, phone)' });
+    if (!outletName || !address || !outletPhone || !city) {
+      return res.status(400).json({ message: 'Please provide all outlet fields (name, address, phone, city)' });
     }
 
     // 2. Verify owner constraints
@@ -119,7 +124,9 @@ const createOutletOwnerDirectly = async (req, res) => {
       location,
       kycDetails,
       status: 'approved',
-      kycStatus: 'approved'
+      kycStatus: 'approved',
+      city,
+      googleMapLink
     });
 
     // 6. Link Outlet back to Owner User
@@ -159,6 +166,14 @@ const getOutlets = async (req, res) => {
       query.kycStatus = req.query.kycStatus;
     }
 
+    if (req.query.status) {
+      query.status = req.query.status;
+    }
+
+    if (req.query.city) {
+      query.city = req.query.city;
+    }
+
     // Advanced search logic across Outlet details AND Owner details
     if (req.query.search) {
       const searchRegex = new RegExp(req.query.search, 'i');
@@ -191,9 +206,14 @@ const getOutlets = async (req, res) => {
       rejected: await Outlet.countDocuments({ kycStatus: 'rejected' })
     };
 
+    let sortObj = { createdAt: -1 };
+    if (req.query.sortBy === 'qualityIndex') {
+      sortObj = { qualityIndex: -1, rating: -1, createdAt: 1 };
+    }
+
     const outlets = await Outlet.find(query)
       .populate('owner', 'name email phone profilePhoto role rewardPoints')
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .skip(skip)
       .limit(limit);
 
@@ -220,11 +240,18 @@ const getOutlets = async (req, res) => {
 const getOutletById = async (req, res) => {
   try {
     const outlet = await Outlet.findById(req.params.id)
-      .populate('owner', 'name email phone profilePhoto role rewardPoints');
+      .populate('owner', 'name email phone profilePhoto role rewardPoints')
+      .populate('brand', 'name logo')
+      .lean();
 
     if (!outlet) {
       return res.status(404).json({ message: 'Outlet not found' });
     }
+
+    const Review = require('../models/Review');
+    const totalReviews = await Review.countDocuments({ outlet: req.params.id });
+    
+    outlet.totalReviews = totalReviews;
 
     res.status(200).json(outlet);
   } catch (error) {
@@ -263,7 +290,21 @@ const updateOutlet = async (req, res) => {
       kycStatus,
       adminMessage,
       freeUploadsLimit,
-      creditWallet
+      creditWallet,
+      city,
+      googleMapLink,
+      images,
+      description,
+      openingTime,
+      closingTime,
+      closedDays,
+      website,
+      instagram,
+      facebook,
+      specializations,
+      establishedYear,
+      brand,
+      status
     } = req.body;
 
     // Contact number unique check
@@ -280,6 +321,19 @@ const updateOutlet = async (req, res) => {
     if (address) outlet.address = address;
     if (email !== undefined) outlet.email = email;
     if (location) outlet.location = location;
+    if (city) outlet.city = city;
+    if (googleMapLink !== undefined) outlet.googleMapLink = googleMapLink;
+    if (images !== undefined) outlet.images = images;
+    if (description !== undefined) outlet.description = description;
+    if (openingTime !== undefined) outlet.openingTime = openingTime;
+    if (closingTime !== undefined) outlet.closingTime = closingTime;
+    if (closedDays !== undefined) outlet.closedDays = closedDays;
+    if (website !== undefined) outlet.website = website;
+    if (instagram !== undefined) outlet.instagram = instagram;
+    if (facebook !== undefined) outlet.facebook = facebook;
+    if (specializations !== undefined) outlet.specializations = specializations;
+    if (establishedYear !== undefined) outlet.establishedYear = establishedYear;
+    if (brand !== undefined) outlet.brand = brand || null;
     if (kycDetails) {
       outlet.kycDetails = {
         gstNumber: kycDetails.gstNumber !== undefined ? kycDetails.gstNumber : outlet.kycDetails.gstNumber,
@@ -678,14 +732,54 @@ const getFeaturedOutlets = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10) || 5;
 
-    const outlets = await Outlet.find({
+    const query = {
       isFeaturedHome: true,
       status: 'approved',
       kycStatus: 'approved'
-    })
+    };
+
+    if (req.query.city) {
+      query.city = req.query.city;
+    }
+
+    const outlets = await Outlet.find(query)
       .populate('owner', 'name phone')
       .select('name address phone email images location rating featuredPriority')
       .sort({ featuredPriority: 1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: outlets.length,
+      data: outlets
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Get top ranked outlets for Home Screen display (by qualityIndex)
+ * @route   GET /api/outlets/top-ranked
+ * @access  Public
+ */
+const getTopRankedOutlets = async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 5;
+
+    const query = {
+      status: 'approved',
+      kycStatus: 'approved'
+    };
+
+    if (req.query.city) {
+      query.city = req.query.city;
+    }
+
+    const outlets = await Outlet.find(query)
+      .populate('owner', 'name phone')
+      .select('name address phone email images location rating qualityIndex')
+      .sort({ qualityIndex: -1, rating: -1, createdAt: 1 })
       .limit(limit);
 
     res.status(200).json({
@@ -708,5 +802,6 @@ module.exports = {
   reviewOutletRequest,
   getOutletStats,
   getOutletPurchases,
-  getFeaturedOutlets
+  getFeaturedOutlets,
+  getTopRankedOutlets
 };

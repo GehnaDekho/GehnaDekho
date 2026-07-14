@@ -44,9 +44,9 @@ const creditTransactionSchema = new mongoose.Schema(
         'jewellery_feature',
         'try_on_activation',
         'reel_post',
-        'feedback_view',
-        'service_request',
+        'feedback_unlock_fee',
         'slot_booking',
+        'booking_reveal_fee',
         'other'
       ],
       default: 'other'
@@ -100,6 +100,7 @@ const creditTransactionSchema = new mongoose.Schema(
         'ServiceRequest',
         'Slot',
         'PurchaseHistory',
+        'Booking',
         'other'
       ],
       default: 'other'

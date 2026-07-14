@@ -21,6 +21,21 @@ const outletSchema = new mongoose.Schema(
       required: [true, 'Please add an outlet contact phone number'],
       trim: true
     },
+    city: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'City',
+      required: [true, 'Please select a city']
+    },
+    brand: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Brand',
+      default: null
+    },
+    googleMapLink: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     email: {
       type: String,
       match: [
@@ -35,9 +50,23 @@ const outletSchema = new mongoose.Schema(
       lng: { type: Number, default: null }
     },
     images: {
-      type: [String],
+      type: [{
+        url: { type: String, required: true },
+        heading: { type: String, default: '', trim: true },
+        subheading: { type: String, default: '', trim: true }
+      }],
       default: []
     },
+    description: { type: String, default: '', trim: true },
+    openingTime: { type: String, default: '' },
+    closingTime: { type: String, default: '' },
+    closedDays: { type: [String], default: [] },
+    website: { type: String, default: '', trim: true },
+    instagram: { type: String, default: '', trim: true },
+    facebook: { type: String, default: '', trim: true },
+    specializations: { type: [String], default: [] },
+    establishedYear: { type: Number, default: null },
+    qualityIndex: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ['pending', 'approved', 'rejected'],

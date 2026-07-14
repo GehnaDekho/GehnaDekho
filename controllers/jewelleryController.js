@@ -152,6 +152,13 @@ const getJewelleries = async (req, res) => {
       query.isFeatured = req.query.isFeatured === 'true';
     }
 
+    // 7. Filter by City
+    if (req.query.city) {
+      const Outlet = require('../models/Outlet');
+      const outletsInCity = await Outlet.find({ city: req.query.city, status: 'approved' }).select('_id');
+      query.outlet = { $in: outletsInCity.map(o => o._id) };
+    }
+
     const totalCount = await Jewellery.countDocuments(query);
     const jewelleries = await Jewellery.find(query)
       .populate('category', 'name image')

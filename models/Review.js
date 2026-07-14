@@ -99,4 +99,52 @@ reviewSchema.pre('save', async function (next) {
   }
 });
 
+// Calculate average rating for the associated outlet
+reviewSchema.statics.calcAverageRating = async function (outletId) {
+  const stats = await this.aggregate([
+    {
+      $match: { outlet: outletId }
+    },
+    {
+      $group: {
+        _id: '$outlet',
+        nRating: { $sum: 1 },
+        avgRating: { $avg: '$averageScore' }
+      }
+    }
+  ]);
+
+  try {
+    const Outlet = mongoose.model('Outlet');
+    if (stats.length > 0) {
+      await Outlet.findByIdAndUpdate(outletId, {
+        rating: Math.round(stats[0].avgRating * 10) / 10
+      });
+    } else {
+      await Outlet.findByIdAndUpdate(outletId, {
+        rating: 0
+      });
+    }
+  } catch (err) {
+    console.error('Error calculating average rating:', err);
+  }
+};
+
+// Call calcAverageRating after save
+reviewSchema.post('save', function () {
+  this.constructor.calcAverageRating(this.outlet);
+});
+
+// Call calcAverageRating before remove
+reviewSchema.pre(/^findOneAnd/, async function (next) {
+  this.r = await this.clone().findOne();
+  next();
+});
+
+reviewSchema.post(/^findOneAnd/, async function () {
+  if (this.r) {
+    await this.r.constructor.calcAverageRating(this.r.outlet);
+  }
+});
+
 module.exports = mongoose.model('Review', reviewSchema);

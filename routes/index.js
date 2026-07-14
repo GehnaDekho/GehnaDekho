@@ -21,10 +21,14 @@ const redeemRequestRoutes = require('./redeemRequestRoutes');
 const ratingCriteriaRoutes = require('./ratingCriteriaRoutes');
 const uploadRoutes = require('./uploadRoutes');
 const reelRoutes = require('./reelRoutes');
+const bookingRoutes = require('./bookingRoutes');
+const cityRoutes = require('./cityRoutes');
+const brandRoutes = require('./brandRoutes');
 
 // Mount individual resource routes
 router.use('/users', userRoutes);
 router.use('/admin', adminRoutes);
+router.use('/brands', brandRoutes);
 router.use('/outlets', outletRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/jewelleries', jewelleryRoutes);
@@ -43,5 +47,7 @@ router.use('/redeem-requests', redeemRequestRoutes);
 router.use('/rating-criteria', ratingCriteriaRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/reels', reelRoutes);
+router.use('/bookings', bookingRoutes);
+router.use('/cities', cityRoutes);
 
 module.exports = router;

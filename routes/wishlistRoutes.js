@@ -3,7 +3,8 @@ const router = express.Router();
 const {
   addToWishlist,
   removeFromWishlist,
-  getWishlist
+  getWishlist,
+  toggleWishlist
 } = require('../controllers/wishlistController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -13,6 +14,8 @@ router.use(protect);
 router.route('/')
   .post(addToWishlist)
   .get(getWishlist);
+
+router.post('/toggle', toggleWishlist);
 
 router.route('/:jewelleryId')
   .delete(removeFromWishlist);

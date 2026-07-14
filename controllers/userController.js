@@ -1,6 +1,7 @@
-const User = require("../models/User");
-const OtpSession = require("../models/OtpSession");
-const { generateToken } = require("../utils/jwtToken");
+const User = require('../models/User');
+const OtpSession = require('../models/OtpSession');
+const { generateToken } = require('../utils/jwtToken');
+const { sendMsg91Otp } = require('../utils/msg91');
 
 /**
  * @desc    Register a new user
@@ -13,17 +14,13 @@ const registerUser = async (req, res) => {
 
     // Validate required fields
     if (!name || !email || !phone) {
-      return res
-        .status(400)
-        .json({
-          message: "Please add all required fields (name, email, phone)",
-        });
+      return res.status(400).json({ message: 'Please add all required fields (name, email, phone)' });
     }
 
     // Check if user already exists (by email or phone number)
     const userExists = await User.findOne({ $or: [{ email }, { phone }] });
     if (userExists) {
-      const field = userExists.email === email ? "Email" : "Phone number";
+      const field = userExists.email === email ? 'Email' : 'Phone number';
       return res.status(400).json({ message: `${field} already registered` });
     }
 
@@ -32,16 +29,13 @@ const registerUser = async (req, res) => {
       name,
       email,
       phone,
-      profilePhoto: profilePhoto || "default.jpg",
-      role: role || "customer",
+      profilePhoto: profilePhoto || 'default.jpg',
+      role: role || 'customer'
     });
 
     if (user) {
       // Issue a JWT token upon successful registration
-      const token = generateToken(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-      );
+      const token = generateToken({ id: user._id, role: user.role }, process.env.JWT_SECRET);
 
       res.status(201).json({
         _id: user._id,
@@ -50,10 +44,10 @@ const registerUser = async (req, res) => {
         phone: user.phone,
         role: user.role,
         rewardPoints: user.rewardPoints,
-        token,
+        token
       });
     } else {
-      res.status(400).json({ message: "Invalid user data" });
+      res.status(400).json({ message: 'Invalid user data' });
     }
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -70,12 +64,12 @@ const loginUser = async (req, res) => {
     const { phone } = req.body;
 
     if (!phone) {
-      return res.status(400).json({ message: "Please provide a phone number" });
+      return res.status(400).json({ message: 'Please provide a phone number' });
     }
 
-    // Generate a 6-digit random OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-
+    // Generate a 4-digit random OTP
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    
     // Set expiration to 5 minutes from now
     const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -83,23 +77,33 @@ const loginUser = async (req, res) => {
     await OtpSession.findOneAndUpdate(
       { phone },
       { otp, otpExpires },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     // Log the OTP on the console for backend test accessibility
     console.log(`\n==============================================`);
     console.log(`[OTP SYSTEM]`);
     console.log(`User Phone: ${phone}`);
-    console.log(`6-Digit OTP Code: ${otp}`);
+    console.log(`4-Digit OTP Code: ${otp}`);
     console.log(`Expires: ${otpExpires.toLocaleTimeString()}`);
     console.log(`==============================================\n`);
 
-    // Respond to user (Skipping actual SMS gateway integration as requested)
+    // Try to send the OTP via MSG91
+    try {
+      if (process.env.ENABLE_OTP_BYPASS !== 'true') {
+        await sendMsg91Otp(phone, otp);
+      }
+    } catch (err) {
+      console.error('Failed to send OTP via SMS Gateway:', err);
+      // We don't fail the request here, but log it. In production, you might want to return an error.
+    }
+
+    // Respond to user
     res.status(200).json({
-      message: "OTP sent successfully (Mock)",
+      message: 'OTP sent successfully',
       phone,
-      // For development, we return the OTP in the API response so the frontend can automatically fill or read it.
-      mockOtp: otp,
+      // For development/bypass, return mockOtp
+      mockOtp: process.env.ENABLE_OTP_BYPASS === 'true' ? otp : undefined
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -116,33 +120,27 @@ const verifyOTP = async (req, res) => {
     const { phone, otp } = req.body;
 
     if (!phone || !otp) {
-      return res
-        .status(400)
-        .json({ message: "Please provide phone and 6-digit OTP" });
+      return res.status(400).json({ message: 'Please provide phone and 4-digit OTP' });
     }
 
     // TODO: Remove OTP Bypass once SMS Gateway is integrated
-    const isBypassMode = process.env.ENABLE_OTP_BYPASS === "true";
+    const isBypassMode = process.env.ENABLE_OTP_BYPASS === 'true';
 
     // Find active OTP session
     const session = await OtpSession.findOne({ phone });
     if (!isBypassMode && !session) {
-      return res
-        .status(400)
-        .json({
-          message: "OTP has expired or is invalid. Please request a new one.",
-        });
+      return res.status(400).json({ message: 'OTP has expired or is invalid. Please request a new one.' });
     }
 
     // Verify OTP
     if (!isBypassMode && session.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP code" });
+      return res.status(400).json({ message: 'Invalid OTP code' });
     }
 
     // Check if expired (in case TTL index hasn't run yet)
     if (!isBypassMode && new Date() > session.otpExpires) {
       await OtpSession.deleteOne({ phone });
-      return res.status(400).json({ message: "OTP has expired" });
+      return res.status(400).json({ message: 'OTP has expired' });
     }
 
     // Clear session upon successful verification
@@ -157,15 +155,12 @@ const verifyOTP = async (req, res) => {
       return res.status(200).json({
         isNewUser: true,
         phone,
-        message: "Verification successful. Please register.",
+        message: 'Verification successful. Please register.'
       });
     }
 
     // Existing user; generate JWT token and return profile
-    const token = generateToken(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-    );
+    const token = generateToken({ id: user._id, role: user.role }, process.env.JWT_SECRET);
 
     res.status(200).json({
       isNewUser: false,
@@ -175,7 +170,7 @@ const verifyOTP = async (req, res) => {
       phone: user.phone,
       role: user.role,
       rewardPoints: user.rewardPoints,
-      token,
+      token
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -204,11 +199,11 @@ const getUsers = async (req, res) => {
 
     // Search filter: searches case-insensitively in name, email, or phone
     if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, "i");
+      const searchRegex = new RegExp(req.query.search, 'i');
       query.$or = [
         { name: searchRegex },
         { email: searchRegex },
-        { phone: searchRegex },
+        { phone: searchRegex }
       ];
     }
 
@@ -217,29 +212,29 @@ const getUsers = async (req, res) => {
 
     // Retrieve matching users, excluding sensitive fields, sorted by creation date
     const users = await User.find(query)
-      .select("-otp -otpExpires")
+      .select('-otp -otpExpires')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
     // Fetch aggregate totals for administrative dashboard overview
     const totalCount = await User.countDocuments({});
-    const ownersCount = await User.countDocuments({ role: "outlet_owner" });
-    const customersCount = await User.countDocuments({ role: "customer" });
+    const ownersCount = await User.countDocuments({ role: 'outlet_owner' });
+    const customersCount = await User.countDocuments({ role: 'customer' });
 
     res.status(200).json({
       users,
       counts: {
         total: totalCount,
         owners: ownersCount,
-        customers: customersCount,
+        customers: customersCount
       },
       pagination: {
         total: totalUsers,
         page,
         limit,
-        pages: Math.ceil(totalUsers / limit),
-      },
+        pages: Math.ceil(totalUsers / limit)
+      }
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -254,21 +249,16 @@ const getUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
-      .select("-otp -otpExpires")
-      .populate("outletId");
+      .select('-otp -otpExpires')
+      .populate('outletId');
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: 'User not found' });
     }
 
     // Authorization check: only Admin or the user themselves can retrieve this profile
-    if (
-      req.user.role !== "admin" &&
-      req.user._id.toString() !== user._id.toString()
-    ) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to view this profile" });
+    if (req.user.role !== 'admin' && req.user._id.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view this profile' });
     }
 
     res.status(200).json(user);
@@ -287,17 +277,12 @@ const updateUser = async (req, res) => {
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: 'User not found' });
     }
 
     // Authorization check: only Admin or the user themselves can update this profile
-    if (
-      req.user.role !== "admin" &&
-      req.user._id.toString() !== user._id.toString()
-    ) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update this profile" });
+    if (req.user.role !== 'admin' && req.user._id.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to update this profile' });
     }
 
     const { name, email, phone, profilePhoto, role, rewardPoints } = req.body;
@@ -306,9 +291,7 @@ const updateUser = async (req, res) => {
     if (email && email !== user.email) {
       const emailExists = await User.findOne({ email });
       if (emailExists) {
-        return res
-          .status(400)
-          .json({ message: "Email is already registered by another user" });
+        return res.status(400).json({ message: 'Email is already registered by another user' });
       }
       user.email = email;
     }
@@ -316,11 +299,7 @@ const updateUser = async (req, res) => {
     if (phone && phone !== user.phone) {
       const phoneExists = await User.findOne({ phone });
       if (phoneExists) {
-        return res
-          .status(400)
-          .json({
-            message: "Phone number is already registered by another user",
-          });
+        return res.status(400).json({ message: 'Phone number is already registered by another user' });
       }
       user.phone = phone;
     }
@@ -330,9 +309,9 @@ const updateUser = async (req, res) => {
     if (profilePhoto) user.profilePhoto = profilePhoto;
 
     // Restricted fields: Only admins can alter role and rewardPoints
-    if (req.user.role === "admin") {
+    if (req.user.role === 'admin') {
       if (role) user.role = role;
-      if (typeof rewardPoints === "number") user.rewardPoints = rewardPoints;
+      if (typeof rewardPoints === 'number') user.rewardPoints = rewardPoints;
     }
 
     const updatedUser = await user.save();
@@ -343,7 +322,7 @@ const updateUser = async (req, res) => {
       email: updatedUser.email,
       phone: updatedUser.phone,
       role: updatedUser.role,
-      rewardPoints: updatedUser.rewardPoints,
+      rewardPoints: updatedUser.rewardPoints
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -360,12 +339,12 @@ const deleteUser = async (req, res) => {
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: 'User not found' });
     }
 
     await User.deleteOne({ _id: req.params.id });
 
-    res.status(200).json({ message: "User deleted successfully" });
+    res.status(200).json({ message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -378,5 +357,5 @@ module.exports = {
   getUsers,
   getUserById,
   updateUser,
-  deleteUser,
+  deleteUser
 };

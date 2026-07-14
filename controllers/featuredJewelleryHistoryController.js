@@ -256,13 +256,21 @@ const getTodayFeatured = async (req, res) => {
     const startOfISTDay = new Date(Date.UTC(year, month, date, 0, 0, 0, 0) - IST_OFFSET);
     const endOfISTDay = new Date(Date.UTC(year, month, date, 23, 59, 59, 999) - IST_OFFSET);
 
-    // 2. Fetch history records falling in Indian Calendar date bounds
-    const logs = await FeaturedJewelleryHistory.find({
+    const query = {
       date: {
         $gte: startOfISTDay,
         $lte: endOfISTDay
       }
-    })
+    };
+
+    if (req.query.city) {
+      const Outlet = require('../models/Outlet');
+      const outletsInCity = await Outlet.find({ city: req.query.city, status: 'approved' }).select('_id');
+      query.outlet = { $in: outletsInCity.map(o => o._id) };
+    }
+
+    // 2. Fetch history records falling in Indian Calendar date bounds
+    const logs = await FeaturedJewelleryHistory.find(query)
       .populate('slot')
       .populate({
         path: 'jewellery',

@@ -60,6 +60,12 @@ const getReels = async (req, res) => {
       query.outlet = req.query.outletId;
     }
 
+    if (req.query.city) {
+      const Outlet = require('../models/Outlet');
+      const outletsInCity = await Outlet.find({ city: req.query.city, status: 'approved' }).select('_id');
+      query.outlet = { $in: outletsInCity.map(o => o._id) };
+    }
+
     const total = await Reel.countDocuments(query);
     const reels = await Reel.find(query)
       .populate('outlet', 'name businessName brandLogoAddress')

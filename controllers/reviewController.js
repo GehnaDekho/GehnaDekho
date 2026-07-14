@@ -26,6 +26,13 @@ const createReview = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Outlet not found' });
     }
 
+    // Find and delete any existing reviews by this user for this outlet
+    const existingReview = await Review.findOne({ user: req.user._id, outlet: outletId });
+    if (existingReview) {
+      // Use findOneAndDelete to trigger any necessary hooks (like recalculating average if needed)
+      await Review.findOneAndDelete({ _id: existingReview._id });
+    }
+
     // Create review (pre-save hook in Review model handles average ratings calculations and owner check)
     const review = await Review.create({
       user: req.user._id,

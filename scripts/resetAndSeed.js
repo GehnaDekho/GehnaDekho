@@ -106,7 +106,8 @@ const seedData = async () => {
 
   // 4. Master Data: Credit Config
   const creditConfigs = [
-    { actionName: 'service_request_fee', creditsRequired: 5, description: 'Base fee for administrative service requests' },
+    { actionName: 'feedback_unlock_fee', creditsRequired: 2, description: 'Fee to unlock private customer feedback' },
+    { actionName: 'booking_reveal_fee', creditsRequired: 2, description: 'Fee to reveal customer booking details' },
     { actionName: 'product_upload_fee', creditsRequired: 1, description: 'Fee per jewellery upload beyond the free limit' },
     { actionName: 'featured_listing_fee', creditsRequired: 10, description: 'Daily cost to feature a product' },
   ];

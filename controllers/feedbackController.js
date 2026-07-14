@@ -138,13 +138,13 @@ const unlockFeedback = async (req, res) => {
 
     // 4. Fetch the credit configuration cost for feedback viewing
     const config = await CreditConfig.findOne({
-      actionName: 'feedback_view',
+      actionName: 'feedback_unlock_fee',
       isActive: true
     });
     if (!config) {
       return res.status(400).json({
         success: false,
-        message: "System Error: The credit cost for action 'feedback_view' is not configured by the administrator."
+        message: "System Error: The credit cost for action 'feedback_unlock_fee' is not configured by the administrator."
       });
     }
 
@@ -176,7 +176,7 @@ const unlockFeedback = async (req, res) => {
       credits: requiredCost,
       balance: newBalance,
       transactionType: 'debit',
-      transactionReason: 'feedback_view',
+      transactionReason: 'feedback_unlock_fee',
       status: 'success',
       remark: 'Unlocked private customer feedback',
       description: `Viewed private feedback from customer: ${feedback.user ? feedback.user.name : 'Unknown Customer'}`,
