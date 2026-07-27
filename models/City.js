@@ -13,6 +13,10 @@ const citySchema = new mongoose.Schema(
       required: [true, 'Please provide a state name'],
       trim: true,
     },
+    image: {
+      type: String,
+      default: '',
+    },
     isActive: {
       type: Boolean,
       default: true,

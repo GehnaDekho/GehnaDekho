@@ -4,6 +4,7 @@ const CreditConfig = require('../models/CreditConfig');
 const CreditTransaction = require('../models/CreditTransaction');
 const User = require('../models/User');
 const { awardVoucherPoints } = require('../utils/voucherHelper');
+const notificationService = require('../services/notification.service');
 
 /**
  * @desc    Submit private feedback for an outlet (Customer Only)
@@ -42,6 +43,32 @@ const createFeedback = async (req, res) => {
       feedback._id,
       'Awarded points for submitting private feedback'
     );
+
+    // Notify Outlet Owner
+    if (outlet.owner) {
+      await notificationService.createAndSend({
+        title: 'New Private Feedback',
+        message: `A customer has submitted private feedback for your outlet. Unlock it to view.`,
+        receiver: outlet.owner,
+        receiverType: 'user',
+        targetMode: 'outlet',
+        notificationType: 'FEEDBACK_UPDATE',
+        eventId: feedback._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
+
+    // Notify Customer about Points Awarded
+    if (awardResult && awardResult.points > 0) {
+      await notificationService.createAndSend({
+        title: 'Congratulations! 🎉',
+        message: `You have earned ${awardResult.points} reward points for submitting feedback.`,
+        receiver: req.user._id,
+        receiverType: 'user',
+        targetMode: 'user',
+        notificationType: 'REWARD_POINTS',
+        eventId: feedback._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
 
     res.status(201).json({
       success: true,

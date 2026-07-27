@@ -24,6 +24,11 @@ const reelRoutes = require('./reelRoutes');
 const bookingRoutes = require('./bookingRoutes');
 const cityRoutes = require('./cityRoutes');
 const brandRoutes = require('./brandRoutes');
+const metalRoutes = require('./metalRoutes');
+const announcementRoutes = require('./announcementRoutes');
+const offerRoutes = require('./offerRoutes');
+const notificationRoutes = require('./notification.routes');
+const searchRoutes = require('./searchRoutes');
 
 // Mount individual resource routes
 router.use('/users', userRoutes);
@@ -49,5 +54,10 @@ router.use('/upload', uploadRoutes);
 router.use('/reels', reelRoutes);
 router.use('/bookings', bookingRoutes);
 router.use('/cities', cityRoutes);
+router.use('/metals', metalRoutes);
+router.use('/announcements', announcementRoutes);
+router.use('/offers', offerRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/search', searchRoutes);
 
 module.exports = router;

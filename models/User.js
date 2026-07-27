@@ -35,6 +35,11 @@ const userSchema = new mongoose.Schema(
       ref: 'Outlet',
       default: null,
     },
+    city: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'City',
+      default: null,
+    },
     rewardPoints: {
       type: Number,
       default: 0,
@@ -50,7 +55,17 @@ const userSchema = new mongoose.Schema(
     otpExpires: {
       type: Date,
       default: null,
-    }
+    },
+    devices: [
+      {
+        token: { type: String, required: true },
+        platform: { type: String, enum: ['android', 'ios', 'web'] },
+        deviceId: { type: String },
+        appVersion: { type: String },
+        active: { type: Boolean, default: true },
+        lastSeen: { type: Date, default: Date.now },
+      }
+    ]
   },
   {
     timestamps: true,

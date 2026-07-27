@@ -7,7 +7,8 @@ const {
   getUsers,
   getUserById,
   updateUser,
-  deleteUser
+  deleteUser,
+  updateDeviceToken
 } = require('../controllers/userController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -15,6 +16,9 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 router.route('/register').post(registerUser);
 router.route('/login').post(loginUser);
 router.route('/verify-otp').post(verifyOTP);
+
+// Protected User routes
+router.route('/update-device').post(protect, updateDeviceToken);
 
 // Admin-only and protected CRUD routes
 router.route('/')

@@ -5,6 +5,7 @@ const path = require('path');
 const connectDB = require('./config/db');
 const apiRoutes = require('./routes');
 const { initCronJobs } = require('./cron/qualityIndexCron');
+const firebaseService = require('./services/firebase.service');
 
 // Load env variables
 dotenv.config();
@@ -36,4 +37,7 @@ app.listen(PORT, () => {
   
   // Initialize background tasks
   initCronJobs();
+
+  // Initialize Firebase Admin SDK
+  firebaseService.initialize();
 });

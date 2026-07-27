@@ -51,6 +51,7 @@ temp/
 # Uploads (ignore all uploaded files)
 uploads/
 **/uploads/
+scripts/
 
 # Optional: Ignore generated media
 public/uploads/

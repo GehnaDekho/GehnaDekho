@@ -4,6 +4,7 @@ const Outlet = require('../models/Outlet');
 const CreditConfig = require('../models/CreditConfig');
 const CreditTransaction = require('../models/CreditTransaction');
 const Jewellery = require('../models/Jewellery');
+const notificationService = require('../services/notification.service');
 
 /**
  * @desc    Create a new booking (Customer)
@@ -51,7 +52,31 @@ exports.createBooking = async (req, res) => {
 
     const populatedBooking = await Booking.findById(booking._id)
       .populate('jewelleryId', 'name images price')
-      .populate('outletId', 'name address phone');
+      .populate('outletId', 'name address phone owner');
+
+    // Send Notification to Outlet Owner
+    if (populatedBooking.outletId && populatedBooking.outletId.owner) {
+      await notificationService.createAndSend({
+        title: 'New Booking Request',
+        message: `A customer has requested to visit your outlet for ${populatedBooking.jewelleryId?.name || 'Jewellery'} on ${requestedDate.toDateString()}.`,
+        receiver: populatedBooking.outletId.owner,
+        receiverType: 'user',
+        targetMode: 'outlet',
+        notificationType: 'BOOKING_UPDATE',
+        eventId: booking._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
+
+    // Send Notification to Customer
+    await notificationService.createAndSend({
+      title: 'Booking Confirmed',
+      message: `Your visit to ${populatedBooking.outletId?.name || 'the outlet'} for ${populatedBooking.jewelleryId?.name || 'Jewellery'} is scheduled for ${requestedDate.toDateString()}.`,
+      receiver: req.user._id,
+      receiverType: 'user',
+      targetMode: 'user',
+      notificationType: 'BOOKING_UPDATE',
+      eventId: booking._id,
+    }).catch(err => console.error('Notification Error:', err));
 
     res.status(201).json({
       success: true,
@@ -259,6 +284,19 @@ exports.updateBookingStatus = async (req, res) => {
     if (remark) booking.remark = remark;
 
     await booking.save();
+    
+    const populatedBooking = await Booking.findById(booking._id).populate('userId').populate('jewelleryId').populate('outletId');
+
+    // Notify Customer
+    await notificationService.createAndSend({
+      title: 'Booking Completed',
+      message: `You have successfully completed your visit to ${populatedBooking.outletId?.name || 'the outlet'} for ${populatedBooking.jewelleryId?.name || 'Jewellery'}.`,
+      receiver: populatedBooking.userId,
+      receiverType: 'user',
+      targetMode: 'user',
+      notificationType: 'BOOKING_UPDATE',
+      eventId: booking._id,
+    }).catch(err => console.error('Notification Error:', err));
 
     res.status(200).json({
       success: true,

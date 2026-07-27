@@ -17,6 +17,11 @@ const jewellerySchema = new mongoose.Schema(
       ref: 'Category',
       required: [true, 'Please select a category for this jewellery']
     },
+    metal: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Metal',
+      required: [true, 'Please select a metal type for this jewellery']
+    },
     images: {
       type: [String],
       required: [true, 'Please add at least one image of the jewellery'],

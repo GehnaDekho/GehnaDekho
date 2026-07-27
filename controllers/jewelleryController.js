@@ -12,6 +12,7 @@ const createJewellery = async (req, res) => {
     const {
       name,
       category,
+      metal,
       images,
       description,
       material,
@@ -51,8 +52,8 @@ const createJewellery = async (req, res) => {
     }
 
     // Validate required fields
-    if (!name || !category || !images || !material || !weight || !purity || !price) {
-      return res.status(400).json({ message: 'Please fill all required fields (name, category, images, material, weight, purity, price)' });
+    if (!name || !category || !metal || !images || !material || !weight || !purity || !price) {
+      return res.status(400).json({ message: 'Please fill all required fields (name, category, metal, images, material, weight, purity, price)' });
     }
 
     // Business Logic: Rolling Count Limit & Credits enforcement
@@ -82,6 +83,7 @@ const createJewellery = async (req, res) => {
       outlet: outletId,
       name,
       category,
+      metal,
       images,
       description: description || '',
       material,
@@ -94,6 +96,7 @@ const createJewellery = async (req, res) => {
 
     const populatedJewellery = await Jewellery.findById(jewellery._id)
       .populate('category', 'name image')
+      .populate('metal', 'metalName image')
       .populate('outlet', 'name address phone email location status');
 
     res.status(201).json({
@@ -132,6 +135,11 @@ const getJewelleries = async (req, res) => {
       query.category = req.query.category;
     }
 
+    // 2.5. Filter by Metal ID
+    if (req.query.metal) {
+      query.metal = req.query.metal;
+    }
+
     // 3. Filter by Outlet ID
     if (req.query.outlet) {
       query.outlet = req.query.outlet;
@@ -162,6 +170,7 @@ const getJewelleries = async (req, res) => {
     const totalCount = await Jewellery.countDocuments(query);
     const jewelleries = await Jewellery.find(query)
       .populate('category', 'name image')
+      .populate('metal', 'metalName image')
       .populate('outlet', 'name address phone email location status')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -195,6 +204,7 @@ const getJewelleryById = async (req, res) => {
       { new: true }
     )
       .populate('category', 'name image description')
+      .populate('metal', 'metalName image description')
       .populate('outlet', 'name address phone email location status freeUploadsLimit');
 
     if (!jewellery) {
@@ -232,6 +242,7 @@ const updateJewellery = async (req, res) => {
     const {
       name,
       category,
+      metal,
       images,
       description,
       material,
@@ -244,6 +255,7 @@ const updateJewellery = async (req, res) => {
 
     if (name) jewellery.name = name;
     if (category) jewellery.category = category;
+    if (metal) jewellery.metal = metal;
     if (images) jewellery.images = images;
     if (description !== undefined) jewellery.description = description;
     if (material) jewellery.material = material;
@@ -257,6 +269,7 @@ const updateJewellery = async (req, res) => {
 
     const populatedUpdated = await Jewellery.findById(updatedJewellery._id)
       .populate('category', 'name image')
+      .populate('metal', 'metalName image')
       .populate('outlet', 'name address phone email location status');
 
     res.status(200).json(populatedUpdated);

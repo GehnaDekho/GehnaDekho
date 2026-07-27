@@ -8,6 +8,7 @@ const CreditTransaction = require('../models/CreditTransaction');
 const Reel = require('../models/Reel');
 const PurchaseHistory = require('../models/PurchaseHistory');
 const mongoose = require('mongoose');
+const notificationService = require('../services/notification.service');
 
 /**
  * @desc    Submit an onboarding application for an outlet
@@ -437,6 +438,17 @@ const reviewOutletRequest = async (req, res) => {
         role: 'outlet_owner',
         outletId: outlet._id
       });
+
+      await notificationService.createAndSend({
+        title: 'Outlet Approved',
+        message: `Congratulations! Your outlet "${outlet.name}" has been approved.`,
+        receiver: outlet.owner,
+        receiverType: 'user',
+        targetMode: 'outlet',
+        notificationType: 'OUTLET_UPDATE',
+        eventId: outlet._id,
+      }).catch(err => console.error('Notification Error:', err));
+      
     } else if (status === 'rejected') {
       if (!adminMessage) {
         return res.status(400).json({ message: 'Please provide an adminMessage explaining the rejection reason' });
@@ -448,6 +460,15 @@ const reviewOutletRequest = async (req, res) => {
         role: 'customer',
         outletId: null
       });
+
+      await notificationService.createAndSend({
+        title: 'Outlet Update',
+        message: `Unfortunately, your outlet application was rejected. Reason: ${adminMessage}`,
+        receiver: outlet.owner,
+        receiverType: 'user',
+        notificationType: 'OUTLET_UPDATE',
+        eventId: outlet._id,
+      }).catch(err => console.error('Notification Error:', err));
     }
 
     const updatedOutlet = await outlet.save();

@@ -1,6 +1,7 @@
 const RedeemRequest = require('../models/RedeemRequest');
 const VoucherTransaction = require('../models/VoucherTransaction');
 const User = require('../models/User');
+const notificationService = require('../services/notification.service');
 
 /**
  * @desc    Submit a request to redeem voucher points (Customer Only)
@@ -194,6 +195,17 @@ const reviewRedeemRequest = async (req, res) => {
         `[Email Mock] Secure email dispatched to customer: ${redeemRequest.user.email}. Subject: Voucher Redemption Approved. Details: Your request for ${redeemRequest.points} points has been approved.`
       );
 
+      // 4. Send Push Notification to User
+      await notificationService.createAndSend({
+        title: 'Redeem Request Approved! ✅',
+        message: `Your request to redeem ${redeemRequest.points} points has been approved.`,
+        receiver: redeemRequest.user._id,
+        receiverType: 'user',
+        targetMode: 'user',
+        notificationType: 'SYSTEM',
+        eventId: redeemRequest._id,
+      }).catch(err => console.error('Notification Error:', err));
+
       res.status(200).json({
         success: true,
         message: 'Redemption request approved successfully.',
@@ -233,6 +245,17 @@ const reviewRedeemRequest = async (req, res) => {
         referenceId: redeemRequest._id,
         remark: `Refund for rejected redemption request: ${adminMessage.trim()}`,
       });
+
+      // 5. Send Push Notification to User
+      await notificationService.createAndSend({
+        title: 'Redeem Request Rejected ❌',
+        message: `Your request to redeem ${redeemRequest.points} points was rejected. Points refunded. Reason: ${adminMessage.trim()}`,
+        receiver: redeemRequest.user._id,
+        receiverType: 'user',
+        targetMode: 'user',
+        notificationType: 'SYSTEM',
+        eventId: redeemRequest._id,
+      }).catch(err => console.error('Notification Error:', err));
 
       res.status(200).json({
         success: true,

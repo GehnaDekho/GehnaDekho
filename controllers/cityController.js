@@ -33,7 +33,7 @@ const getCities = async (req, res) => {
  */
 const createCity = async (req, res) => {
   try {
-    const { name, state, isActive } = req.body;
+    const { name, state, image, isActive } = req.body;
 
     if (!name || !state) {
       return res.status(400).json({ success: false, message: 'Please provide both city name and state' });
@@ -42,6 +42,7 @@ const createCity = async (req, res) => {
     const newCity = await City.create({
       name,
       state,
+      image,
       isActive: isActive !== undefined ? isActive : true
     });
 
@@ -64,7 +65,7 @@ const createCity = async (req, res) => {
  */
 const updateCity = async (req, res) => {
   try {
-    const { name, state, isActive } = req.body;
+    const { name, state, image, isActive } = req.body;
     
     let city = await City.findById(req.params.id);
     if (!city) {
@@ -73,7 +74,7 @@ const updateCity = async (req, res) => {
 
     city = await City.findByIdAndUpdate(
       req.params.id,
-      { name, state, isActive },
+      { name, state, image, isActive },
       { new: true, runValidators: true }
     );
 

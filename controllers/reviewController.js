@@ -2,6 +2,7 @@ const Review = require('../models/Review');
 const Outlet = require('../models/Outlet');
 const RatingCriteria = require('../models/RatingCriteria');
 const { awardVoucherPoints } = require('../utils/voucherHelper');
+const notificationService = require('../services/notification.service');
 
 /**
  * @desc    Submit reviews and ratings for an outlet (Customer Only)
@@ -53,6 +54,32 @@ const createReview = async (req, res) => {
       review._id,
       `Awarded points for submitting a shop ${actionName}`
     );
+
+    // Notify Outlet Owner
+    if (outlet.owner) {
+      await notificationService.createAndSend({
+        title: 'New Outlet Review! ⭐',
+        message: `A customer just left a ${actionName} for your outlet!`,
+        receiver: outlet.owner,
+        receiverType: 'user',
+        targetMode: 'outlet',
+        notificationType: 'REVIEW_ADD',
+        eventId: review._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
+
+    // Notify Customer about Points Awarded
+    if (awardResult && awardResult.points > 0) {
+      await notificationService.createAndSend({
+        title: 'Congratulations! 🎉',
+        message: `You have earned ${awardResult.points} reward points for submitting a ${actionName}.`,
+        receiver: req.user._id,
+        receiverType: 'user',
+        targetMode: 'user',
+        notificationType: 'REWARD_EARNED',
+        eventId: review._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
 
     res.status(201).json({
       success: true,
