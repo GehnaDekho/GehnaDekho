@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getBrands,
+  getAdminBrands,
   getHomeBrands,
   getBrandById,
   createBrand,
@@ -16,6 +17,7 @@ router.get('/home', getHomeBrands);
 router.get('/:id', getBrandById);
 
 // Admin-only routes
+router.get('/admin/list', protect, authorize('admin'), getAdminBrands);
 router.post('/', protect, authorize('admin'), createBrand);
 router.put('/:id', protect, authorize('admin'), updateBrand);
 router.delete('/:id', protect, authorize('admin'), deleteBrand);

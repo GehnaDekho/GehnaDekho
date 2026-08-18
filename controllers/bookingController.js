@@ -459,7 +459,7 @@ exports.getAdminBookings = async (req, res) => {
     const bookings = await Booking.find(matchQuery)
       .populate('userId', 'name phone email')
       .populate('jewelleryId', 'name images')
-      .populate('outletId', 'name')
+      .populate('outletId', 'name phone')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));

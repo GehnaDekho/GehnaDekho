@@ -15,6 +15,20 @@ const getBrands = async (req, res) => {
 };
 
 /**
+ * @desc    Get all brands (Admin) - including inactive
+ * @route   GET /api/brands/admin/list
+ * @access  Private (Admin)
+ */
+const getAdminBrands = async (req, res) => {
+  try {
+    const brands = await Brand.find({}).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, count: brands.length, data: brands });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
  * @desc    Get brands for the home screen
  * @route   GET /api/brands/home
  * @access  Public
@@ -127,6 +141,7 @@ const deleteBrand = async (req, res) => {
 
 module.exports = {
   getBrands,
+  getAdminBrands,
   getHomeBrands,
   getBrandById,
   createBrand,

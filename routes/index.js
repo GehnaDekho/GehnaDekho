@@ -29,6 +29,8 @@ const announcementRoutes = require('./announcementRoutes');
 const offerRoutes = require('./offerRoutes');
 const notificationRoutes = require('./notification.routes');
 const searchRoutes = require('./searchRoutes');
+const policyRoutes = require('./policyRoutes');
+const metalRateRoutes = require('./metalRateRoutes');
 
 // Mount individual resource routes
 router.use('/users', userRoutes);
@@ -59,5 +61,7 @@ router.use('/announcements', announcementRoutes);
 router.use('/offers', offerRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/search', searchRoutes);
+router.use('/policy', policyRoutes);
+router.use('/metal-rates', metalRateRoutes);
 
 module.exports = router;
