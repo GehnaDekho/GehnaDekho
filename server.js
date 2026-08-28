@@ -5,6 +5,7 @@ const path = require('path');
 const connectDB = require('./config/db');
 const apiRoutes = require('./routes');
 const { initCronJobs } = require('./cron/qualityIndexCron');
+const { initBookingCron } = require('./cron/bookingCron');
 const firebaseService = require('./services/firebase.service');
 
 // Load env variables
@@ -24,6 +25,10 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/gehnaDekho', apiRoutes);
+app.use('/share', require('./routes/shareRoutes'));
+
+// Serve .well-known folder for Deep Linking (App Links / Universal Links)
+app.use('/.well-known', express.static(path.join(__dirname, '.well-known')));
 
 // Basic route for health check
 app.get('/', (req, res) => {
@@ -37,6 +42,7 @@ app.listen(PORT, () => {
   
   // Initialize background tasks
   initCronJobs();
+  initBookingCron();
 
   // Initialize Firebase Admin SDK
   firebaseService.initialize();

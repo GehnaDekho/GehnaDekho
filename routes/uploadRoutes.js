@@ -163,6 +163,17 @@ router.post("/", protect, upload.single("image"), (req, res) => {
 
     const folder = req.uploadFolder || "general";
 
+    // Enforce 2MB size limit for reels and jewellery photos
+    if ((folder === "reels" || folder === "jewellery") && req.file.size > 2 * 1024 * 1024) {
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(413).json({
+        success: false,
+        message: "File size exceeds 2MB limit",
+      });
+    }
+
     const imageUrl = `${process.env.BASE_URL}/uploads/${folder}/${req.file.filename}`;
 
     res.status(200).json({

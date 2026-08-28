@@ -9,6 +9,7 @@ const {
   trackTryOnInteraction,
   trackWishlistAddition
 } = require('../controllers/jewelleryController');
+const { addReview, getReviews } = require('../controllers/jewelleryReviewController');
 const { protect } = require('../middleware/authMiddleware');
 
 router.route('/')
@@ -25,5 +26,9 @@ router.route('/:id/tryon')
 
 router.route('/:id/wishlist')
   .post(trackWishlistAddition);
+
+router.route('/:id/reviews')
+  .post(protect, addReview)
+  .get(getReviews);
 
 module.exports = router;

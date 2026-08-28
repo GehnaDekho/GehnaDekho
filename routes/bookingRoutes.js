@@ -8,6 +8,8 @@ const {
   revealBookingDetails,
   getAdminBookings,
   getUserBookings,
+  cancelBooking,
+  editAdminBooking,
 } = require("../controllers/bookingController");
 const { protect, authorize } = require("../middleware/authMiddleware");
 
@@ -24,9 +26,22 @@ router.get(
   getUserBookings,
 );
 
+// @route   PATCH /gehnaDekho/bookings/user/:id/cancel
+// @desc    Cancel a booking (Customer)
+router.patch(
+  "/user/:id/cancel",
+  protect,
+  authorize("customer", "outlet_owner"),
+  cancelBooking
+);
+
 // @route   GET /gehnaDekho/bookings/admin/list
 // @desc    Get all bookings (Admin)
 router.get("/admin/list", protect, authorize("admin"), getAdminBookings);
+
+// @route   PATCH /gehnaDekho/bookings/admin/:id
+// @desc    Edit booking details (Admin)
+router.patch("/admin/:id", protect, authorize("admin"), editAdminBooking);
 
 // @route   GET /gehnaDekho/bookings/outlet/list
 // @desc    Get paginated bookings for an outlet (Outlet Owner)

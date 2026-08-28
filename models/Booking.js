@@ -23,8 +23,8 @@ const bookingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['not_visited', 'visited'],
-      default: 'not_visited'
+      enum: ['scheduled', 'visited', 'not_visited', 'cancelled'],
+      default: 'scheduled'
     },
     remark: {
       type: String,

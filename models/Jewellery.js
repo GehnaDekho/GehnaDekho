@@ -53,6 +53,14 @@ const jewellerySchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Please add the price of the jewellery']
     },
+    rating: {
+      type: Number,
+      default: 0
+    },
+    totalRatings: {
+      type: Number,
+      default: 0
+    },
     is3DTryOnAvailable: {
       type: Boolean,
       default: false

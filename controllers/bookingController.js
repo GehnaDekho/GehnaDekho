@@ -27,6 +27,13 @@ exports.createBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Preferred date cannot be in the past' });
     }
 
+    if (req.user.role === 'outlet_owner') {
+      const targetOutlet = await Outlet.findById(outletId);
+      if (targetOutlet && targetOutlet.owner.toString() === req.user._id.toString()) {
+        return res.status(403).json({ success: false, message: 'You cannot book jewellery from your own outlet.' });
+      }
+    }
+
     const activeBooking = await Booking.findOne({
       userId: req.user._id,
       jewelleryId,
@@ -47,7 +54,7 @@ exports.createBooking = async (req, res) => {
       jewelleryId,
       outletId,
       preferredDate: requestedDate,
-      status: 'not_visited'
+      status: 'scheduled'
     });
 
     const populatedBooking = await Booking.findById(booking._id)
@@ -97,16 +104,20 @@ exports.getUserBookings = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
+    const { status } = req.query;
     const skip = (page - 1) * limit;
 
-    const bookings = await Booking.find({ userId: req.user._id })
+    const query = { userId: req.user._id };
+    if (status) query.status = status;
+
+    const bookings = await Booking.find(query)
       .populate('jewelleryId', 'name images price')
       .populate('outletId', 'name address phone')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await Booking.countDocuments({ userId: req.user._id });
+    const total = await Booking.countDocuments(query);
 
     res.status(200).json({
       success: true,
@@ -183,8 +194,8 @@ exports.getOutletBookings = async (req, res) => {
     if (status) {
       query.status = status;
     } else if (!date && !search) {
-      // Default view: only show not_visited if no status provided and no other filters
-      query.status = 'not_visited';
+      // Default view: only show scheduled if no status provided and no other filters
+      query.status = 'scheduled';
     }
 
     if (date) {
@@ -476,6 +487,110 @@ exports.getAdminBookings = async (req, res) => {
         pages: Math.ceil(total / limit)
       },
       data: bookings
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Cancel a booking
+ * @route   PATCH /gehnaDekho/bookings/user/:id/cancel
+ * @access  Private (Customer)
+ */
+exports.cancelBooking = async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ _id: req.params.id, userId: req.user._id });
+    
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    if (booking.status === 'cancelled') {
+      return res.status(400).json({ success: false, message: 'Booking is already cancelled' });
+    }
+
+    booking.status = 'cancelled';
+    await booking.save();
+    
+    const populatedBooking = await Booking.findById(booking._id).populate('userId').populate('jewelleryId').populate('outletId');
+
+    // Notify Outlet Owner
+    if (populatedBooking.outletId && populatedBooking.outletId.owner) {
+      await notificationService.createAndSend({
+        title: 'Booking Cancelled',
+        message: `A booking for ${populatedBooking.jewelleryId?.name || 'Jewellery'} on ${new Date(populatedBooking.preferredDate).toDateString()} was cancelled by the customer.`,
+        receiver: populatedBooking.outletId.owner,
+        receiverType: 'user',
+        targetMode: 'outlet',
+        notificationType: 'BOOKING_UPDATE',
+        eventId: booking._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking cancelled successfully',
+      data: populatedBooking
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Edit booking details (Admin)
+ * @route   PATCH /gehnaDekho/bookings/admin/:id
+ * @access  Private (Admin)
+ */
+exports.editAdminBooking = async (req, res) => {
+  try {
+    const { status, preferredDate, remark } = req.body;
+    
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    let statusChanged = false;
+
+    if (status && status !== booking.status) {
+      booking.status = status;
+      statusChanged = true;
+      if (status === 'visited' && !booking.visitedAt) {
+        booking.visitedAt = new Date();
+      }
+    }
+    
+    if (preferredDate) {
+      booking.preferredDate = new Date(preferredDate);
+    }
+    
+    if (remark !== undefined) {
+      booking.remark = remark;
+    }
+
+    await booking.save();
+
+    const populatedBooking = await Booking.findById(booking._id).populate('userId').populate('jewelleryId').populate('outletId');
+
+    // If status changed, notify outlet owner
+    if (statusChanged && populatedBooking.outletId && populatedBooking.outletId.owner) {
+      await notificationService.createAndSend({
+        title: 'Booking Status Updated',
+        message: `Admin has updated a booking status to ${status.replace('_', ' ').toUpperCase()} for ${populatedBooking.jewelleryId?.name || 'Jewellery'}.`,
+        receiver: populatedBooking.outletId.owner,
+        receiverType: 'user',
+        targetMode: 'outlet',
+        notificationType: 'BOOKING_UPDATE',
+        eventId: booking._id,
+      }).catch(err => console.error('Notification Error:', err));
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Booking updated successfully',
+      data: populatedBooking
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
