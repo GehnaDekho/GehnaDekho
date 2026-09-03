@@ -37,8 +37,7 @@ exports.createBooking = async (req, res) => {
     const activeBooking = await Booking.findOne({
       userId: req.user._id,
       jewelleryId,
-      status: { $ne: 'visited' },
-      preferredDate: { $gte: today }
+      status: 'scheduled'
     });
 
     if (activeBooking) {
@@ -185,17 +184,23 @@ exports.getOutletBookings = async (req, res) => {
       return res.status(403).json({ success: false, message: 'You do not own an active outlet' });
     }
 
-    const { page = 1, limit = 7, status, date, search } = req.query;
+    const { page = 1, limit = 7, status, date, search, revealed } = req.query;
     
     // Default filters
     const query = { outletId: outlet._id };
     
     // Apply provided filters, else fall back to default logic
-    if (status) {
+    if (status && status !== 'all') {
       query.status = status;
-    } else if (!date && !search) {
+    } else if (!status && !date && !search && !revealed) {
       // Default view: only show scheduled if no status provided and no other filters
       query.status = 'scheduled';
+    }
+
+    if (revealed === 'true') {
+      query.revealed = true;
+    } else if (revealed === 'false') {
+      query.revealed = false;
     }
 
     if (date) {
@@ -203,7 +208,7 @@ exports.getOutletBookings = async (req, res) => {
       const startOfDay = new Date(filterDate.setHours(0, 0, 0, 0));
       const endOfDay = new Date(filterDate.setHours(23, 59, 59, 999));
       query.preferredDate = { $gte: startOfDay, $lte: endOfDay };
-    } else if (!status && !search) {
+    } else if (!status && !date && !search) {
       // Default view: today's bookings if no date provided and no other filters
       const today = new Date();
       const startOfDay = new Date(today.setHours(0, 0, 0, 0));
@@ -226,12 +231,14 @@ exports.getOutletBookings = async (req, res) => {
       matchQuery = { ...query, userId: { $in: userIds } };
     }
 
+    const sortQuery = status === 'all' ? { createdAt: -1 } : { preferredDate: 1, createdAt: -1 };
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     
     const bookings = await Booking.find(matchQuery)
       .populate('userId', 'name phone profilePhoto')
       .populate('jewelleryId', 'name images')
-      .sort({ preferredDate: 1, createdAt: -1 })
+      .sort(sortQuery)
       .skip(skip)
       .limit(parseInt(limit));
 

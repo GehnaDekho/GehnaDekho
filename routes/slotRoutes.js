@@ -6,7 +6,7 @@ const {
   getSlotById,
   updateSlot,
   deleteSlot,
-  getAvailableSlotsForToday
+  getAvailableSlots
 } = require('../controllers/slotController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -15,8 +15,8 @@ router.route('/')
   .post(protect, authorize('admin'), createSlot)
   .get(getSlots);
 
-router.route('/available/today')
-  .get(protect, getAvailableSlotsForToday);
+router.route('/available')
+  .get(protect, getAvailableSlots);
 
 router.route('/:id')
   .get(getSlotById)

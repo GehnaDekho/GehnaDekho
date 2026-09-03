@@ -47,6 +47,54 @@ const createFeaturedHistory = async (req, res) => {
       }
     }
 
+    // 5. Date Validation & Duplicate Booking Check
+    const requestedDate = date ? new Date(date) : new Date();
+    
+    if (isNaN(requestedDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid date format provided' });
+    }
+
+    const IST_OFFSET = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(Date.now() + IST_OFFSET);
+    const requestedIST = new Date(requestedDate.getTime() + IST_OFFSET);
+
+    // Normalize to start of day in IST for comparison
+    const todayStartIST = new Date(Date.UTC(nowIST.getUTCFullYear(), nowIST.getUTCMonth(), nowIST.getUTCDate(), 0, 0, 0, 0) - IST_OFFSET);
+    
+    // Max 7 days in future
+    const maxFutureDate = new Date(todayStartIST.getTime() + (7 * 24 * 60 * 60 * 1000));
+    
+    const reqYear = requestedIST.getUTCFullYear();
+    const reqMonth = requestedIST.getUTCMonth();
+    const reqDate = requestedIST.getUTCDate();
+    
+    const reqStartOfISTDay = new Date(Date.UTC(reqYear, reqMonth, reqDate, 0, 0, 0, 0) - IST_OFFSET);
+    const reqEndOfISTDay = new Date(Date.UTC(reqYear, reqMonth, reqDate, 23, 59, 59, 999) - IST_OFFSET);
+
+    if (reqStartOfISTDay < todayStartIST) {
+      return res.status(400).json({ success: false, message: 'Cannot feature jewellery on a past date.' });
+    }
+
+    if (reqStartOfISTDay > maxFutureDate) {
+      return res.status(400).json({ success: false, message: 'Cannot feature jewellery more than 7 days in advance.' });
+    }
+
+    // Check if the slot is already booked for this specific date
+    const existingBooking = await FeaturedJewelleryHistory.findOne({
+      slot: slot,
+      date: {
+        $gte: reqStartOfISTDay,
+        $lte: reqEndOfISTDay
+      }
+    });
+
+    if (existingBooking) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Slot #${slotExists.slotNumber} is already booked for this date.` 
+      });
+    }
+
     // ==========================================
     // CREDIT ENFORCEMENT & DEBIT TRANSACTION
     // ==========================================
@@ -71,7 +119,7 @@ const createFeaturedHistory = async (req, res) => {
       slot,
       jewellery,
       outlet,
-      date: date || Date.now()
+      date: requestedDate
     });
 
     // Record dynamic Transaction inside CreditTransaction ledger

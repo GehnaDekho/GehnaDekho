@@ -7,6 +7,7 @@ const Review = require('../models/Review');
 const CreditTransaction = require('../models/CreditTransaction');
 const Reel = require('../models/Reel');
 const PurchaseHistory = require('../models/PurchaseHistory');
+const ServiceRequest = require('../models/ServiceRequest');
 const mongoose = require('mongoose');
 const notificationService = require('../services/notification.service');
 
@@ -538,11 +539,9 @@ const getOutletStats = async (req, res) => {
       ...dateFilter
     });
 
-    // Query service requests count from dynamic ledger transactions if model not yet seeded
-    const servicesRequested = await CreditTransaction.countDocuments({
-      outletId: outlet._id,
-      transactionReason: 'service_request',
-      status: 'success',
+    // Query service requests count from ServiceRequest model
+    const servicesRequested = await ServiceRequest.countDocuments({
+      outlet: outlet._id,
       ...dateFilter
     });
 

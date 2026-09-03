@@ -20,16 +20,15 @@ const calculateProfileCompletion = (outlet) => {
     phone: 7,
     email: 7,
     city: 5,
-    googleMapLink: 7,
-    location: 5, // lat & lng
-    images: 10, // >= 1
+    googleMapLink: 12,
+    images: 10,
     description: 10,
-    businessHours: 7, // openingTime & closingTime
+    businessHours: 7,
     kycDetailsGST: 5,
     kycDetailsPAN: 5,
-    specializations: 8, // >= 1
+    specializations: 8,
     establishedYear: 5,
-    onlinePresence: 5 // website OR instagram OR facebook
+    onlinePresence: 5
   };
 
   let score = 0;
@@ -40,10 +39,6 @@ const calculateProfileCompletion = (outlet) => {
   if (outlet.email && outlet.email.trim() !== '') score += weights.email;
   if (outlet.city) score += weights.city;
   if (outlet.googleMapLink && outlet.googleMapLink.trim() !== '') score += weights.googleMapLink;
-  
-  if (outlet.location && outlet.location.lat !== null && outlet.location.lng !== null) {
-    score += weights.location;
-  }
   
   if (outlet.images && outlet.images.length > 0) {
     score += weights.images;

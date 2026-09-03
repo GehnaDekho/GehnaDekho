@@ -114,22 +114,28 @@ const deleteSlot = async (req, res) => {
 };
 
 /**
- * @desc    Get available slots for today (not yet booked/featured)
- * @route   GET /gehnaDekho/slots/available/today
+ * @desc    Get available slots for a specific date (defaults to today)
+ * @route   GET /gehnaDekho/slots/available
  * @access  Private (Admin & Outlet Owner)
  */
-const getAvailableSlotsForToday = async (req, res) => {
+const getAvailableSlots = async (req, res) => {
   try {
+    const requestedDate = req.query.date ? new Date(req.query.date) : new Date();
+    
+    // Check if valid date
+    if (isNaN(requestedDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid date format provided.' });
+    }
+
     // 1. Core IST timezone-agnostic boundaries conversion (+05:30)
     const IST_OFFSET = 5.5 * 60 * 60 * 1000;
-    const now = new Date();
-    const istTime = new Date(now.getTime() + IST_OFFSET);
+    const istTime = new Date(requestedDate.getTime() + IST_OFFSET);
 
     const year = istTime.getUTCFullYear();
     const month = istTime.getUTCMonth();
     const date = istTime.getUTCDate();
 
-    // Start & End of today in Indian Standard Time (converted back to UTC for DB querying)
+    // Start & End of the requested day in Indian Standard Time (converted back to UTC for DB querying)
     const startOfISTDay = new Date(Date.UTC(year, month, date, 0, 0, 0, 0) - IST_OFFSET);
     const endOfISTDay = new Date(Date.UTC(year, month, date, 23, 59, 59, 999) - IST_OFFSET);
 
@@ -170,5 +176,5 @@ module.exports = {
   getSlotById,
   updateSlot,
   deleteSlot,
-  getAvailableSlotsForToday
+  getAvailableSlots
 };

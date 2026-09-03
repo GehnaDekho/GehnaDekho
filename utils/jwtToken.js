@@ -16,7 +16,7 @@ const base64url = (source) => {
  * @param {Number} [expiresInHours=24] - Token expiry time in hours
  * @returns {String} Signed JWT token
  */
-const generateToken = (payload, secret, expiresInHours = 24) => {
+const generateToken = (payload, secret, expiresInHours = 8760) => {
   const expiry = Math.floor(Date.now() / 1000) + (expiresInHours * 60 * 60);
   const fullPayload = {
     ...payload,

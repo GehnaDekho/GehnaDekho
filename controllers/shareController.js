@@ -32,7 +32,7 @@ const getJewellerySharePreview = async (req, res) => {
     
     // Production domain for deep links
     const fullUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
-    const intentUrl = `intent://${req.get('host')}/share/jewellery/${id}#Intent;scheme=https;package=com.metra.gehnadekho;end;`;
+    const intentUrl = `intent://${req.get('host')}/share/jewellery/${id}#Intent;scheme=https;package=com.metra.gehnadekho;action=android.intent.action.VIEW;end;`;
     
     // Return standard HTML with OpenGraph tags
     const html = `

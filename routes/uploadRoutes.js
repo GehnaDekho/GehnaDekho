@@ -139,7 +139,7 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 200 * 1024 * 1024, // 200 MB
+    fileSize: 10 * 1024 * 1024, // 10 MB maximum allowed by multer
   },
 });
 
@@ -163,14 +163,22 @@ router.post("/", protect, upload.single("image"), (req, res) => {
 
     const folder = req.uploadFolder || "general";
 
-    // Enforce 2MB size limit for reels and jewellery photos
-    if ((folder === "reels" || folder === "jewellery") && req.file.size > 2 * 1024 * 1024) {
+    let maxLimit = 2 * 1024 * 1024; // 2MB default
+    let maxLimitStr = "2MB";
+
+    if (folder === "reels") {
+      maxLimit = 10 * 1024 * 1024; // 10MB for reels
+      maxLimitStr = "10MB";
+    }
+
+    // Enforce size limit
+    if (req.file.size > maxLimit) {
       if (fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
       return res.status(413).json({
         success: false,
-        message: "File size exceeds 2MB limit",
+        message: `File size exceeds ${maxLimitStr} limit`,
       });
     }
 
