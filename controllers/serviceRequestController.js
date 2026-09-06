@@ -1,7 +1,7 @@
-const ServiceRequest = require('../models/ServiceRequest');
-const Service = require('../models/Service');
-const Outlet = require('../models/Outlet');
-const CreditTransaction = require('../models/CreditTransaction');
+const ServiceRequest = require("../models/ServiceRequest");
+const Service = require("../models/Service");
+const Outlet = require("../models/Outlet");
+const CreditTransaction = require("../models/CreditTransaction");
 
 /**
  * @desc    Submit a service request (Outlet Owner Only)
@@ -11,34 +11,40 @@ const CreditTransaction = require('../models/CreditTransaction');
  */
 const createServiceRequest = async (req, res) => {
   try {
-    const { serviceId, description } = req.body;
+    const { serviceId, description, outletId } = req.body;
 
     if (!serviceId) {
       return res.status(400).json({
         success: false,
-        message: 'Please specify the service configuration ID'
+        message: "Please specify the service configuration ID",
       });
     }
 
     // 1. Resolve active outlet belonging to this owner
-    const outlet = await Outlet.findOne({ owner: req.user._id });
+    const outlet = await Outlet.findOne({
+      owner: req.user._id,
+      status: "approved",
+    });
     if (!outlet) {
       return res.status(403).json({
         success: false,
-        message: 'Access denied: You do not own an active outlet'
+        message: "Access denied: You do not own an active outlet",
       });
     }
 
     // 2. Fetch the target service cost configuration
     const service = await Service.findById(serviceId);
     if (!service) {
-      return res.status(404).json({ success: false, message: 'Support service configuration not found' });
+      return res.status(404).json({
+        success: false,
+        message: "Support service configuration not found",
+      });
     }
 
     if (!service.isActive) {
       return res.status(400).json({
         success: false,
-        message: `Service '${service.name}' is currently deactivated or unavailable`
+        message: `Service '${service.name}' is currently deactivated or unavailable`,
       });
     }
 
@@ -46,17 +52,17 @@ const createServiceRequest = async (req, res) => {
     const requestDoc = await ServiceRequest.create({
       outlet: outlet._id,
       service: serviceId,
-      description: description || ''
+      description: description || "",
     });
 
     const populatedRequest = await ServiceRequest.findById(requestDoc._id)
-      .populate('service')
-      .populate('outlet', 'name email phone creditWallet');
+      .populate("service")
+      .populate("outlet", "name email phone creditWallet");
 
     res.status(201).json({
       success: true,
-      message: 'Service request submitted successfully',
-      data: populatedRequest
+      message: "Service request submitted successfully",
+      data: populatedRequest,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -75,12 +81,15 @@ const getServiceRequests = async (req, res) => {
     // ==========================================
     // ACCESS CONTROL
     // ==========================================
-    if (req.user.role !== 'admin') {
-      const outlet = await Outlet.findOne({ owner: req.user._id });
+    if (req.user.role !== "admin") {
+      const outlet = await Outlet.findOne({
+        owner: req.user._id,
+        status: "approved",
+      });
       if (!outlet) {
         return res.status(403).json({
           success: false,
-          message: 'Access denied: You do not own an active outlet'
+          message: "Access denied: You do not own an active outlet",
         });
       }
       query.outlet = outlet._id;
@@ -101,8 +110,8 @@ const getServiceRequests = async (req, res) => {
     const skip = (page - 1) * limit;
 
     const requests = await ServiceRequest.find(query)
-      .populate('service')
-      .populate('outlet', 'name email phone location creditWallet')
+      .populate("service")
+      .populate("outlet", "name email phone location creditWallet")
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -116,9 +125,9 @@ const getServiceRequests = async (req, res) => {
         total,
         page,
         limit,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / limit),
       },
-      data: requests
+      data: requests,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -133,27 +142,32 @@ const getServiceRequests = async (req, res) => {
 const getServiceRequestById = async (req, res) => {
   try {
     const requestDoc = await ServiceRequest.findById(req.params.id)
-      .populate('service')
-      .populate('outlet', 'name email phone location creditWallet');
+      .populate("service")
+      .populate("outlet", "name email phone location creditWallet");
 
     if (!requestDoc) {
-      return res.status(404).json({ success: false, message: 'Service request not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Service request not found" });
     }
 
     // Access control
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== "admin") {
       const outlet = await Outlet.findOne({ owner: req.user._id });
-      if (!outlet || requestDoc.outlet._id.toString() !== outlet._id.toString()) {
+      if (
+        !outlet ||
+        requestDoc.outlet._id.toString() !== outlet._id.toString()
+      ) {
         return res.status(403).json({
           success: false,
-          message: 'Not authorized to view this request details'
+          message: "Not authorized to view this request details",
         });
       }
     }
 
     res.status(200).json({
       success: true,
-      data: requestDoc
+      data: requestDoc,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -170,18 +184,24 @@ const reviewServiceRequest = async (req, res) => {
   try {
     const { status, adminNotes } = req.body;
 
-    if (!status || !['pending', 'in_progress', 'resolved', 'cancelled'].includes(status)) {
+    if (
+      !status ||
+      !["pending", "in_progress", "resolved", "cancelled"].includes(status)
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a valid status (pending, in_progress, resolved, or cancelled)'
+        message:
+          "Please provide a valid status (pending, in_progress, resolved, or cancelled)",
       });
     }
 
     const requestDoc = await ServiceRequest.findById(req.params.id)
-      .populate('service')
-      .populate('outlet');
+      .populate("service")
+      .populate("outlet");
     if (!requestDoc) {
-      return res.status(404).json({ success: false, message: 'Service request not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Service request not found" });
     }
 
     // If already in target status, return immediately
@@ -193,7 +213,7 @@ const reviewServiceRequest = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: `Status is already ${status}`,
-        data: requestDoc
+        data: requestDoc,
       });
     }
 
@@ -210,7 +230,7 @@ const reviewServiceRequest = async (req, res) => {
     res.status(200).json({
       success: true,
       message: `Service request status successfully updated to ${status}`,
-      data: requestDoc
+      data: requestDoc,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -221,5 +241,5 @@ module.exports = {
   createServiceRequest,
   getServiceRequests,
   getServiceRequestById,
-  reviewServiceRequest
+  reviewServiceRequest,
 };
