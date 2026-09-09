@@ -228,8 +228,44 @@ const unlockFeedback = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get all feedbacks for a specific outlet (Admin Only)
+ *          Returns unmasked feedbacks with pagination.
+ * @route   GET /gehnaDekho/feedback/admin/outlet/:outletId
+ * @access  Private (Admin Only)
+ */
+const getOutletFeedbacksByAdmin = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const skip = (page - 1) * limit;
+
+    const total = await Feedback.countDocuments({ outlet: req.params.outletId, isDeleted: false });
+
+    const feedbacks = await Feedback.find({ outlet: req.params.outletId, isDeleted: false })
+      .populate('user', 'name phone profilePhoto')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
+      },
+      data: feedbacks
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   createFeedback,
   getOutletFeedbacks,
-  unlockFeedback
+  unlockFeedback,
+  getOutletFeedbacksByAdmin
 };

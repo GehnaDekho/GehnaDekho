@@ -61,7 +61,6 @@ const getTransactions = async (req, res) => {
     // Execute query with populated references
     const transactions = await CreditTransaction.find(query)
       .populate('outletId', 'name email phone creditWallet status')
-      .populate('referenceId') // Dynamic refPath populate
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -95,8 +94,7 @@ const getTransactionById = async (req, res) => {
       _id: req.params.id,
       isDeleted: false
     })
-      .populate('outletId', 'name email phone creditWallet status')
-      .populate('referenceId');
+      .populate('outletId', 'name email phone creditWallet status');
 
     if (!transaction) {
       return res.status(404).json({ success: false, message: 'Transaction not found' });
@@ -225,8 +223,7 @@ const createManualTransaction = async (req, res) => {
     });
 
     const populatedTx = await CreditTransaction.findById(transaction._id)
-      .populate('outletId', 'name email phone creditWallet status')
-      .populate('referenceId');
+      .populate('outletId', 'name email phone creditWallet status');
 
     res.status(201).json({
       success: true,

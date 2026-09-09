@@ -1,4 +1,10 @@
 const Admin = require('../models/Admin');
+const Outlet = require('../models/Outlet');
+const User = require('../models/User');
+const Jewellery = require('../models/Jewellery');
+const CreditTransaction = require('../models/CreditTransaction');
+const ServiceRequest = require('../models/ServiceRequest');
+const PurchaseHistory = require('../models/PurchaseHistory');
 const { generateToken } = require('../utils/jwtToken');
 
 /**
@@ -144,9 +150,100 @@ const updateAdminProfile = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get ERP-style aggregated dashboard stats
+ * @route   GET /api/admin/dashboard
+ * @access  Private/Admin
+ */
+const getDashboardStats = async (req, res) => {
+  try {
+    const { economyStart, economyEnd } = req.query;
+    
+    // Construct date match for economy filters
+    const dateMatch = {};
+    if (economyStart || economyEnd) {
+      dateMatch.createdAt = {};
+      if (economyStart) dateMatch.createdAt.$gte = new Date(economyStart);
+      if (economyEnd) {
+        const end = new Date(economyEnd);
+        end.setHours(23, 59, 59, 999);
+        dateMatch.createdAt.$lte = end;
+      }
+    }
+
+    const [
+      activeOutlets,
+      pendingOutlets,
+      totalCustomers,
+      totalJewelleries,
+      pendingServices,
+      recentTransactions,
+      financials,
+      revenueStats
+    ] = await Promise.all([
+      Outlet.countDocuments({ status: 'approved' }),
+      Outlet.countDocuments({ status: 'pending' }),
+      User.countDocuments({ role: 'customer' }),
+      Jewellery.countDocuments({}),
+      ServiceRequest.countDocuments({ status: 'pending' }),
+      CreditTransaction.find()
+        .sort({ createdAt: -1 })
+        .limit(6)
+        .populate('outletId', 'name phone'),
+      CreditTransaction.aggregate([
+        { $match: dateMatch },
+        {
+          $group: {
+            _id: null,
+            totalRecharged: {
+              $sum: {
+                $cond: [{ $eq: ['$transactionType', 'credit'] }, '$credits', 0]
+              }
+            },
+            totalSpent: {
+              $sum: {
+                $cond: [{ $eq: ['$transactionType', 'debit'] }, '$credits', 0]
+              }
+            }
+          }
+        }
+      ]),
+      PurchaseHistory.aggregate([
+        { $match: dateMatch },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: '$amount' }
+          }
+        }
+      ])
+    ]);
+
+    const financialData = financials.length > 0 ? financials[0] : { totalRecharged: 0, totalSpent: 0 };
+    const totalRevenue = revenueStats.length > 0 ? revenueStats[0].totalRevenue : 0;
+    financialData.totalRevenue = totalRevenue;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        activeOutlets,
+        pendingOutlets,
+        totalCustomers,
+        totalJewelleries,
+        pendingServices,
+        recentTransactions,
+        financials: financialData
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 module.exports = {
   registerAdmin,
   loginAdmin,
   getAdminProfile,
-  updateAdminProfile
+  updateAdminProfile,
+  getDashboardStats
 };

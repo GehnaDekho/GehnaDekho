@@ -4,7 +4,8 @@ const {
   registerAdmin,
   loginAdmin,
   getAdminProfile,
-  updateAdminProfile
+  updateAdminProfile,
+  getDashboardStats
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -16,5 +17,8 @@ router.post('/login', loginAdmin);
 router.route('/profile')
   .get(protect, authorize('admin'), getAdminProfile)
   .put(protect, authorize('admin'), updateAdminProfile);
+
+// ERP Dashboard Stats
+router.get('/dashboard', protect, authorize('admin'), getDashboardStats);
 
 module.exports = router;

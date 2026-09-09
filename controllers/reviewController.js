@@ -107,7 +107,7 @@ const getOutletReviews = async (req, res) => {
     const total = await Review.countDocuments({ outlet: req.params.outletId, isActive: true });
 
     const reviews = await Review.find({ outlet: req.params.outletId, isActive: true })
-      .populate('user', 'name profilePhoto')
+      .populate('user', 'name phone profilePhoto')
       .populate('ratings.criteria', 'name category weightage')
       .sort({ createdAt: -1 })
       .skip(skip)
